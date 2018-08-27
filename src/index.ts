@@ -4,12 +4,14 @@ import * as jws from 'jws';
 import * as mime from 'mime';
 import * as pify from 'pify';
 import * as querystring from 'querystring';
+const HttpsProxyAgent: any = require('https-proxy-agent');
 
 const readFile = pify(fs.readFile);
 
 const GOOGLE_TOKEN_URL = 'https://www.googleapis.com/oauth2/v4/token';
 const GOOGLE_REVOKE_TOKEN_URL =
     'https://accounts.google.com/o/oauth2/revoke?token=';
+const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
 
 interface Payload {
   iss: string;
@@ -249,13 +251,15 @@ export class GoogleToken {
         additionalClaims);
     const signedJWT =
         jws.sign({header: {alg: 'RS256'}, payload, secret: this.key});
+
+    const agent = new HttpsProxyAgent(proxy);
     return axios
         .post<TokenData>(
             GOOGLE_TOKEN_URL, querystring.stringify({
               grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
               assertion: signedJWT
             }),
-            {headers: {'Content-Type': 'application/x-www-form-urlencoded'}})
+            {httpsAgent: agent, headers: {'Content-Type': 'application/x-www-form-urlencoded'}})
         .then(r => {
           this.rawToken = r.data;
           this.token = r.data.access_token;
