@@ -54,7 +54,7 @@ var jws = require("jws");
 var mime = require("mime");
 var pify = require("pify");
 var querystring = require("querystring");
-var HttpsProxyAgent = require('https-proxy-agent');
+var ProxyAgent = require('proxy-agent');
 var readFile = pify(fs.readFile);
 var GOOGLE_TOKEN_URL = 'https://www.googleapis.com/oauth2/v4/token';
 var GOOGLE_REVOKE_TOKEN_URL = 'https://accounts.google.com/o/oauth2/revoke?token=';
@@ -239,7 +239,7 @@ var GoogleToken = /** @class */ (function () {
      */
     GoogleToken.prototype.requestToken = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var iat, additionalClaims, payload, signedJWT, agent;
+            var iat, additionalClaims, payload, signedJWT, requestTokenParams, agent;
             var _this = this;
             return __generator(this, function (_a) {
                 iat = Math.floor(new Date().getTime() / 1000);
@@ -253,12 +253,19 @@ var GoogleToken = /** @class */ (function () {
                     sub: this.sub
                 }, additionalClaims);
                 signedJWT = jws.sign({ header: { alg: 'RS256' }, payload: payload, secret: this.key });
-                agent = new HttpsProxyAgent(proxy);
+                requestTokenParams = {};
+                if (proxy) {
+                    agent = new ProxyAgent(proxy);
+                    requestTokenParams = { httpsAgent: agent, proxy: false, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } };
+                }
+                else {
+                    requestTokenParams = { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } };
+                }
                 return [2 /*return*/, axios_1.default
                         .post(GOOGLE_TOKEN_URL, querystring.stringify({
                         grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
                         assertion: signedJWT
-                    }), { httpsAgent: agent, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+                    }), requestTokenParams)
                         .then(function (r) {
                         _this.rawToken = r.data;
                         _this.token = r.data.access_token;

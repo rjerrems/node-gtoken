@@ -4,7 +4,7 @@ import * as jws from 'jws';
 import * as mime from 'mime';
 import * as pify from 'pify';
 import * as querystring from 'querystring';
-const HttpsProxyAgent: any = require('https-proxy-agent');
+const ProxyAgent: any = require('proxy-agent');
 
 const readFile = pify(fs.readFile);
 
@@ -251,15 +251,21 @@ export class GoogleToken {
         additionalClaims);
     const signedJWT =
         jws.sign({header: {alg: 'RS256'}, payload, secret: this.key});
-
-    const agent = new HttpsProxyAgent(proxy);
+    let requestTokenParams = {};
+    if (proxy) {
+      const agent = new ProxyAgent(proxy);
+      requestTokenParams = {httpsAgent: agent, proxy: false, headers: {'Content-Type': 'application/x-www-form-urlencoded'}};
+    } else {
+      requestTokenParams = {headers: {'Content-Type': 'application/x-www-form-urlencoded'}};
+    }
+    
     return axios
         .post<TokenData>(
             GOOGLE_TOKEN_URL, querystring.stringify({
               grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
               assertion: signedJWT
             }),
-            {httpsAgent: agent, headers: {'Content-Type': 'application/x-www-form-urlencoded'}})
+            requestTokenParams)
         .then(r => {
           this.rawToken = r.data;
           this.token = r.data.access_token;
